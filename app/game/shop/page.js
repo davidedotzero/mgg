@@ -1,11 +1,12 @@
 "use client"
 import { useEffect, useState } from "react";
 import { db } from "@/lib/firebaseConfig";
-import { collection, getDocs, doc, updateDoc, arrayUnion, increment } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc, arrayUnion, increment, getDoc } from "firebase/firestore";
 import useAuth from "@/hooks/useAuth";
 
 const ShopPage = () => {
     const [items, setItems] = useState([]);
+    const [coins, setCoins] = useState(0);
     const [loadingPurchase, setLoadingPurchase] = useState(false);
     const { user, loading } = useAuth();
 
@@ -19,7 +20,18 @@ const ShopPage = () => {
                 }));
                 setItems(data);
             };
+
+            const fetchUserData = async () => {
+                const userRef = doc(db, "users", user.uid);
+                const userSnapshot = await getDoc(userRef);
+                if (userSnapshot.exists()) {
+                    const userData = userSnapshot.data();
+                    setCoins(userData.coins || 0);  // 🛠️ เซ็ต Coins จาก Firestore
+                }
+            };
+
             fetchItems();
+            fetchUserData();
         }
     }, [user]);
 
@@ -28,29 +40,50 @@ const ShopPage = () => {
         setLoadingPurchase(true);
 
         try {
-            const useRef = doc(db, "users", user.uid);
+            const userRef = doc(db, "users", user.uid);
             const userSnapshot = await getDocs(collection(db, "users"));
             const userData = userSnapshot.docs.find((doc) => doc.id === user.uid)?.data();
 
             if (userData && userData.coins >= item.price) {
-                // หักเหรียญและเพิ่มไอเทมใน inventory
-                await updateDoc(useRef, {
-                    coins: increment(-item.price),
-                    inventory: arrayUnion({
-                        id: item.id,
-                        name: item.name,
-                        type: item.type,
-                    }),
-                });
-                alert(`ซื้อ ${item.name} สำเร็จ!`);
+
+                // 🛠️ เช็กว่าไอเทมมีใน Inventory แล้วหรือไม่
+                const existingItem = userData.inventory?.find((invItem) => invItem.id === item.id);
+                if (existingItem) {
+                    // 🛠️ ถ้ามีไอเทมอยู่แล้ว → อัปเดต `count`
+                    const updatedInventory = userData.inventory.map((invItem) =>
+                        invItem.id === item.id
+                            ? { ...invItem, count: (invItem.count || 1) + 1 }
+                            : invItem
+                    );
+
+
+                    await updateDoc(userRef, {
+                        coins: increment(-item.price),  // หัก Coins
+                        inventory: updatedInventory,    // อัปเดต Inventory
+                    });
+                } else {
+                    // 🛠️ ถ้าไม่มีไอเทม → เพิ่มใหม่พร้อม `count: 1`
+                    await updateDoc(userRef, {
+                        coins: increment(-item.price),  // หัก Coins
+                        inventory: arrayUnion({
+                            id: item.id,
+                            name: item.name,
+                            type: item.type,
+                            count: 1,  // 🛠️ เริ่มต้น `count` ที่ 1
+                        }),
+                    });
+                }
+
+                alert(`ซื้อ ${item.name} สำเร็จ! 🛒`);
+                setCoins((prevCoins) => prevCoins - item.price);  // อัปเดต Coins ใน UI
             } else {
-                alert("เหรียญไม่พอ!");
+                alert("เหรียญไม่พอ! ❌");
             }
         } catch (error) {
             console.error("Error buying item:", error);
-            alert("เกิดข้อผิดพลาดในการซื้อไอเทม");
+            alert("เกิดข้อผิดพลาดในการซื้อไอเทม ❌");
         } finally {
-            setLoadingPurchase(false);
+            setLoadingPurchase(false);  // ปลดล็อกปุ่ม
         }
     };
 
@@ -59,6 +92,7 @@ const ShopPage = () => {
     return (
         <div className="min-h-screen bg-gray-100 p-6">
             <h1 className="text-3xl mb-6 text-center">Shop</h1>
+            <p className="text-center mb-4">💰 Coins: {coins}</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {items.map((item) => (
                     <div key={item.id} className="bg-white shadow-md rounded-lg p-4">

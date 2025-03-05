@@ -7,7 +7,7 @@ import {
   doc,
   updateDoc,
   getDoc,
-  setDoc,  // 🛠️ ใช้ setDoc แทน updateDoc สำหรับสร้างแปลงใหม่
+  setDoc,
 } from "firebase/firestore";
 import useAuth from "@/hooks/useAuth";
 
@@ -16,6 +16,9 @@ const MapPage = () => {
   const [plots, setPlots] = useState([]);
   const [selectedSeed, setSelectedSeed] = useState(null);
   const [inventory, setInventory] = useState([]);
+  const [seeds, setSeeds] = useState([]);     // 🌱 เก็บเฉพาะเมล็ดพันธุ์
+  const [items, setItems] = useState([]);     // 🎒 เก็บเฉพาะสิ่งของ
+  const [coins, setCoins] = useState(0);
 
   // 🛠️ ฟังก์ชันซื้อแปลงใหม่
   const buyPlot = async () => {
@@ -32,25 +35,26 @@ const MapPage = () => {
           return;
         }
 
-        // หัก Coins ผู้ใช้
         await updateDoc(userRef, {
           coins: currentCoins - 20,
         });
 
-        // สร้าง Plot ใหม่
         const newPlotId = `plot_00${plots.length + 1}`;
         const plotRef = doc(db, "plots", newPlotId);
-        await setDoc(plotRef, {     // 🛠️ ใช้ setDoc สร้างแปลงใหม่
+        await setDoc(plotRef, {
           planted: false,
           plant: {
             name: "",
             owner: "",
             status: "",
             plantedAt: null,
+            stage: "",
+            xp: 0,
+            growthProgress: 0,
+            lastWateredAt: null,
           },
         });
 
-        // อัปเดต UI
         setPlots((prevPlots) => [
           ...prevPlots,
           {
@@ -61,13 +65,16 @@ const MapPage = () => {
               owner: "",
               status: "",
               plantedAt: null,
+              stage: "",
+              xp: 0,
+              growthProgress: 0,
+              lastWateredAt: null,
             },
           },
         ]);
 
+        setCoins(currentCoins - 20);
         alert("ซื้อแปลงใหม่สำเร็จ! 🌱");
-      } else {
-        console.log("ไม่พบข้อมูลผู้ใช้");
       }
     } catch (error) {
       console.error("Error buying plot:", error);
@@ -75,9 +82,15 @@ const MapPage = () => {
     }
   };
 
+  // 🛠️ ฟังก์ชันปลูกต้นไม้ (เฉพาะเมล็ดพันธุ์)
   const plantInPlot = async (plot) => {
     if (!selectedSeed) return alert("เลือกเมล็ดพันธุ์ก่อน!");
     if (plot.planted) return alert("แปลงนี้มีต้นไม้อยู่แล้ว!");
+
+    if (selectedSeed.type !== "seed") {
+      alert("ปลูกได้เฉพาะเมล็ดพันธุ์เท่านั้น! 🌱");
+      return;
+    }
 
     try {
       const plotRef = doc(db, "plots", plot.id);
@@ -88,6 +101,10 @@ const MapPage = () => {
           owner: user.uid,
           status: "growing",
           plantedAt: new Date(),
+          stage: "seedling",
+          xp: 0,
+          growthProgress: 0,
+          lastWateredAt: null,
         },
       });
 
@@ -96,20 +113,15 @@ const MapPage = () => {
         inventory: inventory.filter((item) => item.id !== selectedSeed.id),
       });
 
-      alert(`ปลูก ${selectedSeed.name} สำเร็จ!`);
-      setPlots((prevPlots) =>
-        prevPlots.map((p) =>
-          p.id === plot.id
-            ? { ...p, planted: true, plant: { name: selectedSeed.name } }
-            : p
-        )
-      );
+      alert(`ปลูก ${selectedSeed.name} สำเร็จ! 🌱`);
+      setSelectedSeed(null);
     } catch (error) {
       console.error("Error planting:", error);
       alert("เกิดข้อผิดพลาดในการปลูกต้นไม้");
     }
   };
 
+  // 🛠️ ดึงข้อมูลแปลงและ Inventory
   useEffect(() => {
     if (user) {
       const fetchPlots = async () => {
@@ -124,14 +136,14 @@ const MapPage = () => {
       const fetchInventory = async () => {
         const userRef = doc(db, "users", user.uid);
         const userSnapshot = await getDoc(userRef);
-
         if (userSnapshot.exists()) {
           const userData = userSnapshot.data();
-          if (userData.inventory) {
-            setInventory(userData.inventory);
-          }
-        } else {
-          console.log("ไม่พบข้อมูลผู้ใช้");
+          setInventory(userData.inventory || []);
+          setCoins(userData.coins || 0);
+
+          // 🛠️ แยกประเภทเมล็ดพันธุ์และสิ่งของ
+          setSeeds(userData.inventory.filter((item) => item.type === "seed"));
+          setItems(userData.inventory.filter((item) => item.type === "item"));
         }
       };
 
@@ -143,47 +155,65 @@ const MapPage = () => {
   if (loading) return <p>Loading...</p>;
 
   return (
-    <div className="min-h-screen bg-green-100 p-6">
-      <div className="mb-6 flex justify-center">
+    <div className="min-h-screen bg-[#f5f9f7] flex">
+      {/* 🌸 ร้านค้า (Aside ซ้าย) */}
+      <aside className="w-1/4 bg-white p-4 rounded-lg shadow-lg m-4">
+        <h2 className="text-2xl mb-4 text-center text-pink-700">🛒 ร้านค้า</h2>
+        <p className="text-center mb-4">💰 Coins: {coins}</p>
         <button
-          onClick={buyPlot}  // 🛠️ ปุ่มซื้อแปลงใหม่
-          className="px-4 py-2 bg-yellow-500 text-white rounded-lg mb-4"
+          onClick={buyPlot}
+          className="w-full mb-4 px-4 py-2 bg-yellow-400 text-white rounded-lg shadow"
         >
           ซื้อแปลงใหม่ (20 Coins)
         </button>
-      </div>
+      </aside>
 
-      <h2 className="text-2xl mb-4">🌱 เลือกเมล็ดพันธุ์</h2>
-      <div className="flex gap-4 mb-6">
-        {inventory.map((item, index) => (
-          <button
-            key={`${item.id}-${index}`}
-            onClick={() => setSelectedSeed(item)}
-            className={`px-4 py-2 rounded-lg ${
-              selectedSeed?.id === item.id
-                ? "bg-blue-500 text-white"
-                : "bg-white text-black"
-            }`}
-          >
-            {item.name}
-          </button>
-        ))}
-      </div>
+      {/* 🌳 แปลงปลูกต้นไม้ (ตรงกลาง) */}
+      <main className="flex-1 bg-white p-6 rounded-lg shadow-lg m-4">
+        <h1 className="text-3xl mb-6 text-center text-green-600">🌳 แผนที่สวน 🗺️</h1>
+        <div className="grid grid-cols-5 gap-4">
+          {plots.map((plot) => (
+            <div
+              key={plot.id}
+              className={`w-24 h-24 border rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer ${
+                plot.planted ? "bg-green-200" : "bg-gray-100"
+              }`}
+            >
+              <span>{plot.planted ? plot.plant.name : "ว่าง"}</span>
+              <span className="text-xs text-gray-600">
+                {plot.planted && plot.plant.stage}
+              </span>
+            </div>
+          ))}
+        </div>
+      </main>
 
-      <h1 className="text-3xl mb-6 text-center">แผนที่สวน 🗺️</h1>
-      <div className="grid grid-cols-5 gap-4">
-        {plots.map((plot) => (
-          <div
-            key={plot.id}
-            className={`w-24 h-24 border ${
-              plot.planted ? "bg-green-500" : "bg-gray-200"
-            } flex items-center justify-center cursor-pointer`}
-            onClick={() => plantInPlot(plot)}
-          >
-            {plot.planted ? plot.plant.name : "ว่าง"}
-          </div>
-        ))}
-      </div>
+      {/* 🎒 กระเป๋าเก็บของ (Aside ขวา) */}
+      <aside className="w-1/4 bg-white p-4 rounded-lg shadow-lg m-4">
+        <h2 className="text-2xl mb-4 text-center text-blue-700">🎒 กระเป๋าเก็บของ</h2>
+        <h3 className="text-lg mb-2">🌱 เมล็ดพันธุ์</h3>
+        <div className="mb-4">
+          {seeds.map((seed) => (
+            <button
+              key={seed.id}
+              className="w-full mb-2 px-4 py-2 bg-green-200 text-green-900 rounded-lg shadow"
+            >
+              {seed.name}
+            </button>
+          ))}
+        </div>
+        <h3 className="text-lg mb-2">🎒 สิ่งของ</h3>
+        <div>
+          {items.map((item) => (
+            <button
+              key={item.id}
+              className="w-full mb-2 px-4 py-2 bg-yellow-200 text-yellow-900 rounded-lg shadow"
+            >
+              {item.name} ({item.count || 1})
+            </button>
+          ))}
+        </div>
+      </aside>
     </div>
   );
 };

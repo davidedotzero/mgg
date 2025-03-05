@@ -15,8 +15,8 @@ const GardenPage = () => {
   const trainBonsai = async (plant, difficulty) => {
     const now = new Date();
     const lastTrainedAt = plant.lastTrainedAt && typeof plant.lastTrainedAt.toDate === "function"
-        ? plant.lastTrainedAt.toDate()  // ✅ ใช้ .toDate() ได้ถ้าเป็น Timestamp
-        : null;
+      ? plant.lastTrainedAt.toDate()  // ✅ ใช้ .toDate() ได้ถ้าเป็น Timestamp
+      : null;
 
     // 🛠️ เช็กว่าเคยฝึกไปแล้วภายใน 1 ชั่วโมงหรือยัง
     if (lastTrainedAt && (now - lastTrainedAt) / 1000 / 60 < 60) {
@@ -88,6 +88,40 @@ const GardenPage = () => {
       alert("เกิดข้อผิดพลาดในการฝึกทรงบอนไซ");
     }
   };
+
+  const useItem = async (itemId) => {
+    try {
+      const userRef = doc(db, "users", user.uid);
+      const userSnapshot = await getDoc(userRef);
+      const userData = userSnapshot.data();
+
+      if (userData && userData.inventory) {
+        // 🛠️ ค้นหาไอเทมที่ต้องการใช้ใน Inventory
+        const updatedInventory = userData.inventory.map((invItem) => {
+          if (invItem.id === itemId) {
+            const newCount = invItem.count - 1;  // 🛠️ ลด `count` ลง 1
+            return newCount > 0
+              ? { ...invItem, count: newCount }  // 🛠️ อัปเดต `count` ถ้ามากกว่า 0
+              : null;  // 🛠️ ถ้า `count` = 0 → ลบไอเทมนี้
+          }
+          return invItem;
+        }).filter(Boolean);  // 🛠️ กรอง `null` ออกจาก Array
+
+        // 🛠️ อัปเดต Inventory ใน Firestore
+        await updateDoc(userRef, {
+          inventory: updatedInventory,
+        });
+
+        alert("ใช้ไอเทมสำเร็จ! 🎒");
+      } else {
+        alert("ไม่พบไอเทมใน Inventory! ❌");
+      }
+    } catch (error) {
+      console.error("Error using item:", error);
+      alert("เกิดข้อผิดพลาดในการใช้ไอเทม ❌");
+    }
+  };
+
 
   const prunePlant = async (plant) => {
     const now = new Date();
@@ -274,7 +308,10 @@ const GardenPage = () => {
                 รดน้ำ 💧
               </button>
               <button
-                onClick={() => fertilizePlant(plant)}
+                onClick={() => {
+                  fertilizePlant(plant)
+                  useItem("fertilizer");  // 🛠️ ใช้ปุ๋ย 1 อัน 🌿
+                }}
                 className="px-4 py-2 bg-green-500 text-white rounded mt-2"
               >
                 ให้ปุ๋ย 🌿
@@ -286,23 +323,32 @@ const GardenPage = () => {
                 ตัดแต่งกิ่ง ✂️
               </button>
               <button
-              onClick={() => trainBonsai(plant, "easy")}
-              className="px-4 py-2 bg-blue-500 text-white rounded mt-2"
-            >
-              ฝึกทรงบอนไซ (ง่าย) 🌀
-            </button>
-            <button
-              onClick={() => trainBonsai(plant, "medium")}
-              className="px-4 py-2 bg-orange-500 text-white rounded mt-2"
-            >
-              ฝึกทรงบอนไซ (ปานกลาง) 🌀
-            </button>
-            <button
-              onClick={() => trainBonsai(plant, "hard")}
-              className="px-4 py-2 bg-red-500 text-white rounded mt-2"
-            >
-              ฝึกทรงบอนไซ (ยาก) 🌀
-            </button>
+                onClick={() => {
+                  trainBonsai(plant, "easy");
+                  useItem("wire");  // 🛠️ ใช้ลวด 1 อัน 🌿
+                }}
+                className="px-4 py-2 bg-blue-500 text-white rounded mt-2"
+              >
+                ฝึกทรงบอนไซ (ง่าย) 🌀
+              </button>
+              <button
+                onClick={() => {
+                  trainBonsai(plant, "medium")
+                  useItem("wire");  // 🛠️ ใช้ลวด 1 อัน 🌿
+                }}
+                className="px-4 py-2 bg-orange-500 text-white rounded mt-2"
+              >
+                ฝึกทรงบอนไซ (ปานกลาง) 🌀
+              </button>
+              <button
+                onClick={() => {
+                  trainBonsai(plant, "hard")
+                  useItem("wire");  // 🛠️ ใช้ลวด 1 อัน 🌿
+                }}
+                className="px-4 py-2 bg-red-500 text-white rounded mt-2"
+              >
+                ฝึกทรงบอนไซ (ยาก) 🌀
+              </button>
             </div>
           ))}
         </div>
