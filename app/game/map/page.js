@@ -10,6 +10,7 @@ import {
   setDoc,
 } from "firebase/firestore";
 import useAuth from "@/hooks/useAuth";
+import Link from "next/link";
 
 const MapPage = () => {
   const { user, loading } = useAuth();
@@ -44,6 +45,7 @@ const MapPage = () => {
         await setDoc(plotRef, {
           planted: false,
           plant: {
+            id:"",
             name: "",
             owner: "",
             status: "",
@@ -61,6 +63,7 @@ const MapPage = () => {
             id: newPlotId,
             planted: false,
             plant: {
+              id:"",
               name: "",
               owner: "",
               status: "",
@@ -87,39 +90,61 @@ const MapPage = () => {
     if (!selectedSeed) return alert("เลือกเมล็ดพันธุ์ก่อน!");
     if (plot.planted) return alert("แปลงนี้มีต้นไม้อยู่แล้ว!");
 
-    if (selectedSeed.type !== "seed") {
-      alert("ปลูกได้เฉพาะเมล็ดพันธุ์เท่านั้น! 🌱");
-      return;
-    }
-
     try {
-      const plotRef = doc(db, "plots", plot.id);
-      await updateDoc(plotRef, {
-        planted: true,
-        plant: {
-          name: selectedSeed.name,
-          owner: user.uid,
-          status: "growing",
-          plantedAt: new Date(),
-          stage: "seedling",
-          xp: 0,
-          growthProgress: 0,
-          lastWateredAt: null,
-        },
-      });
+        const plotRef = doc(db, "plots", plot.id);
+        await updateDoc(plotRef, {
+            planted: true,
+            plant: {
+                id: plot.id,
+                name: selectedSeed.name,
+                owner: user.uid,
+                status: "growing",
+                plantedAt: new Date(),
+                stage: "seedling",        // 🌱 เริ่มต้นที่ระยะต้นกล้า
+                xp: 0,                    // 📈 เริ่มต้น XP = 0
+                growthProgress: 0,        // 📊 เริ่มต้นเปอร์เซ็นต์ 0
+                lastWateredAt: null       // 💧 ยังไม่ได้รดน้ำ
+            },
+        });
 
-      const userRef = doc(db, "users", user.uid);
-      await updateDoc(userRef, {
-        inventory: inventory.filter((item) => item.id !== selectedSeed.id),
-      });
+        const userRef = doc(db, "users", user.uid);
+        await updateDoc(userRef, {
+            inventory: inventory.filter((item) => item.id !== selectedSeed.id),
+        });
 
-      alert(`ปลูก ${selectedSeed.name} สำเร็จ! 🌱`);
-      setSelectedSeed(null);
+        alert(`ปลูก ${selectedSeed.name} สำเร็จ! 🌱`);
+        setPlots((prevPlots) =>
+            prevPlots.map((p) =>
+                p.id === plot.id
+                    ? { ...p, planted: true, plant: { name: selectedSeed.name } }
+                    : p
+            )
+        );
     } catch (error) {
-      console.error("Error planting:", error);
-      alert("เกิดข้อผิดพลาดในการปลูกต้นไม้");
+        console.error("Error planting:", error);
+        alert("เกิดข้อผิดพลาดในการปลูกต้นไม้");
     }
-  };
+};
+
+const updateGrowth = async (plantId, plant) => {
+  const plotRef = doc(db, "plots", plantId);
+  const now = new Date();
+  const lastWateredAt = plant.lastWateredAt?.toDate?.() || plant.plantedAt.toDate?.();
+
+  if (lastWateredAt && (now - lastWateredAt) / 1000 / 60 >= 60) {  // 🕒 เช็กทุก 1 ชั่วโมง
+      const newXp = (plant.xp || 0) + 10;  // 📈 เพิ่ม XP
+      const newStage = newXp >= 100 ? "bonsai" :
+                       newXp >= 60 ? "medium" :
+                       newXp >= 30 ? "small" : "seedling";  // 🌱 ปรับระยะการเติบโต
+
+      await updateDoc(plotRef, {
+          "plant.xp": newXp,
+          "plant.stage": newStage,
+          "plant.growthProgress": Math.min(newXp, 100),  // 📊 สูงสุด 100%
+      });
+  }
+};
+
 
   // 🛠️ ดึงข้อมูลแปลงและ Inventory
   useEffect(() => {
@@ -173,7 +198,8 @@ const MapPage = () => {
         <h1 className="text-3xl mb-6 text-center text-green-600">🌳 แผนที่สวน 🗺️</h1>
         <div className="grid grid-cols-5 gap-4">
           {plots.map((plot) => (
-            <div
+            <Link
+              href={`/game/garden/${plot.id}`}
               key={plot.id}
               className={`w-24 h-24 border rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer ${
                 plot.planted ? "bg-green-200" : "bg-gray-100"
@@ -183,7 +209,7 @@ const MapPage = () => {
               <span className="text-xs text-gray-600">
                 {plot.planted && plot.plant.stage}
               </span>
-            </div>
+            </Link>
           ))}
         </div>
       </main>

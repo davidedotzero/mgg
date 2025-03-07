@@ -1,7 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter, useParams } from "next/navigation";
 import { db } from "@/lib/firebaseConfig";
-import { collection, getDocs, doc, updateDoc, getDoc } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  doc,
+  updateDoc,
+  getDoc,
+} from "firebase/firestore";
 import useAuth from "@/hooks/useAuth";
 
 const GardenPage = () => {
@@ -9,14 +16,16 @@ const GardenPage = () => {
   const [plants, setPlants] = useState([]);
   const [coins, setCoins] = useState(0);
   const [aestheticPoints, setAestheticPoints] = useState(0);
-
+  const router = useRouter();
+  const params = useParams();
 
   // 🛠️ ฟังก์ชันฝึกทรงบอนไซ
   const trainBonsai = async (plant, difficulty) => {
     const now = new Date();
-    const lastTrainedAt = plant.lastTrainedAt && typeof plant.lastTrainedAt.toDate === "function"
-      ? plant.lastTrainedAt.toDate()  // ✅ ใช้ .toDate() ได้ถ้าเป็น Timestamp
-      : null;
+    const lastTrainedAt =
+      plant.lastTrainedAt && typeof plant.lastTrainedAt.toDate === "function"
+        ? plant.lastTrainedAt.toDate() // ✅ ใช้ .toDate() ได้ถ้าเป็น Timestamp
+        : null;
 
     // 🛠️ เช็กว่าเคยฝึกไปแล้วภายใน 1 ชั่วโมงหรือยัง
     if (lastTrainedAt && (now - lastTrainedAt) / 1000 / 60 < 60) {
@@ -37,7 +46,7 @@ const GardenPage = () => {
       hard: 0.4,
     }[difficulty];
 
-    const isSuccess = Math.random() <= successRate;  // 🎲 สุ่มโอกาสสำเร็จ
+    const isSuccess = Math.random() <= successRate; // 🎲 สุ่มโอกาสสำเร็จ
 
     try {
       const plantRef = doc(db, "plots", plant.id);
@@ -73,15 +82,17 @@ const GardenPage = () => {
 
       // อัปเดตสถานะและเวลาฝึก
       setPlants((prevPlants) =>
-        prevPlants.map((p) =>
+      Array.isArray(prevPlants)
+        ? prevPlants.map((p) =>
           p.id === plant.id
             ? {
-              ...p,
-              lastTrainedAt: now,
-              status: isSuccess ? "trained" : "failed",
-            }
+                ...p,
+                lastTrainedAt: now,
+                status: isSuccess ? "trained" : "failed",
+              }
             : p
         )
+        : [{ ...prevPlants, lastTrainedAt: now, status: "ดัดแล้ว" }]
       );
     } catch (error) {
       console.error("Error training bonsai:", error);
@@ -97,15 +108,17 @@ const GardenPage = () => {
 
       if (userData && userData.inventory) {
         // 🛠️ ค้นหาไอเทมที่ต้องการใช้ใน Inventory
-        const updatedInventory = userData.inventory.map((invItem) => {
-          if (invItem.id === itemId) {
-            const newCount = invItem.count - 1;  // 🛠️ ลด `count` ลง 1
-            return newCount > 0
-              ? { ...invItem, count: newCount }  // 🛠️ อัปเดต `count` ถ้ามากกว่า 0
-              : null;  // 🛠️ ถ้า `count` = 0 → ลบไอเทมนี้
-          }
-          return invItem;
-        }).filter(Boolean);  // 🛠️ กรอง `null` ออกจาก Array
+        const updatedInventory = userData.inventory
+          .map((invItem) => {
+            if (invItem.id === itemId) {
+              const newCount = invItem.count - 1; // 🛠️ ลด `count` ลง 1
+              return newCount > 0
+                ? { ...invItem, count: newCount } // 🛠️ อัปเดต `count` ถ้ามากกว่า 0
+                : null; // 🛠️ ถ้า `count` = 0 → ลบไอเทมนี้
+            }
+            return invItem;
+          })
+          .filter(Boolean); // 🛠️ กรอง `null` ออกจาก Array
 
         // 🛠️ อัปเดต Inventory ใน Firestore
         await updateDoc(userRef, {
@@ -121,7 +134,6 @@ const GardenPage = () => {
       alert("เกิดข้อผิดพลาดในการใช้ไอเทม ❌");
     }
   };
-
 
   const prunePlant = async (plant) => {
     const now = new Date();
@@ -139,17 +151,17 @@ const GardenPage = () => {
 
       // เพิ่ม Aesthetic Points
       await updateDoc(userRef, {
-        aestheticPoints: aestheticPoints + 5,  // เพิ่ม 5 Aesthetic Points
+        aestheticPoints: aestheticPoints + 5, // เพิ่ม 5 Aesthetic Points
       });
 
       // อัปเดตสถานะต้นไม้และเวลา "ตัดแต่งล่าสุด"
       await updateDoc(plantRef, {
         "plant.lastPrunedAt": now,
-        "plant.status": "looking good",  // 🛠️ เปลี่ยนสถานะเป็น "ดูดีขึ้น"
+        "plant.status": "looking good", // 🛠️ เปลี่ยนสถานะเป็น "ดูดีขึ้น"
       });
 
       alert(`ตัดแต่งกิ่งต้นไม้ ${plant.name} สำเร็จ! ✂️⭐`);
-      setAestheticPoints((prevPoints) => prevPoints + 5);  // อัปเดต Aesthetic Points ใน UI
+      setAestheticPoints((prevPoints) => prevPoints + 5); // อัปเดต Aesthetic Points ใน UI
       setPlants((prevPlants) =>
         prevPlants.map((p) =>
           p.id === plant.id
@@ -189,11 +201,11 @@ const GardenPage = () => {
       // อัปเดตสถานะต้นไม้และเวลาให้ปุ๋ยล่าสุด
       await updateDoc(plantRef, {
         "plant.lastFertilizedAt": now,
-        "plant.status": "growing faster",  // 🛠️ เปลี่ยนสถานะเป็นโตเร็วขึ้น
+        "plant.status": "growing faster", // 🛠️ เปลี่ยนสถานะเป็นโตเร็วขึ้น
       });
 
       alert(`ให้ปุ๋ยต้นไม้ ${plant.name} สำเร็จ! 🌿`);
-      setCoins((prevCoins) => prevCoins - 5);  // อัปเดต Coins ใน UI
+      setCoins((prevCoins) => prevCoins - 5); // อัปเดต Coins ใน UI
       setPlants((prevPlants) =>
         prevPlants.map((p) =>
           p.id === plant.id
@@ -208,22 +220,28 @@ const GardenPage = () => {
   };
 
   const waterPlant = async (plant) => {
+    if (!plant || !plant.id) {  // ✅ ตรวจสอบว่า plant มีค่าก่อน
+      console.error("Plant is undefined or missing id:", plant);  // ✅ Log Error
+      alert("ไม่พบต้นไม้ที่จะรดน้ำ! ❌");
+      return;
+    }
+  
     const now = new Date();
     const lastWateredAt = plant.lastWateredAt?.toDate();
-
+  
     // 🛠️ เช็กว่าเคยรดน้ำไปแล้วภายใน 1 ชั่วโมงหรือยัง
     if (lastWateredAt && (now - lastWateredAt) / 1000 / 60 < 60) {
       alert("คุณรดน้ำต้นนี้ไปแล้วเมื่อไม่นานมานี้! 💧⏳");
       return;
     }
-
+  
     try {
-      const plantRef = doc(db, "plots", plant.id);
+      const plantRef = doc(db, "plots", plant.id);  // ✅ plant.id จะไม่เป็น undefined
       await updateDoc(plantRef, {
         "plant.lastWateredAt": now,
         "plant.status": "growing faster", // 🛠️ เปลี่ยนสถานะเป็นโตเร็วขึ้น
       });
-
+  
       alert(`รดน้ำต้นไม้ ${plant.name} สำเร็จ! 💧`);
       setPlants((prevPlants) =>
         prevPlants.map((p) =>
@@ -237,122 +255,107 @@ const GardenPage = () => {
       alert("เกิดข้อผิดพลาดในการรดน้ำต้นไม้");
     }
   };
+  
 
   useEffect(() => {
-    if (user) {
-      const fetchPlants = async () => {
-        const plotsSnapshot = await getDocs(collection(db, "plots"));
-        const plantData = plotsSnapshot.docs
-          .filter((doc) => doc.data().planted) // 🛠️ ดึงเฉพาะแปลงที่ปลูกแล้ว
-          .map((doc) => ({
-            id: doc.id,
-            ...doc.data().plant, // 🛠️ ดึงข้อมูลใน `plant` Map
-          }));
-        setPlants(plantData);
-        console.log("ต้นไม้ที่ปลูก:", plantData); // 🛠️ Log ดูว่ามีข้อมูลไหม
-      };
+    const fetchData = async () => {
+      if (user && params?.id) {
+        try {
+          // 🛠️ ดึงข้อมูลต้นไม้
+          const plotRef = doc(db, "plots", params.id);
+          const plotSnapshot = await getDoc(plotRef);
+          if (plotSnapshot.exists()) {
+            setPlants({ id: plotSnapshot.id, ...plotSnapshot.data().plant });
+          } else {
+            router.push("/game/map");
+            return;
+          }
 
-      const fetchAestheticPoints = async () => {
-        const userRef = doc(db, "users", user.uid);
-        const userSnapshot = await getDoc(userRef);
-        if (userSnapshot.exists()) {
-          const userData = userSnapshot.data();
-          setAestheticPoints(userData.aestheticPoints || 0);  // 🛠️ เซ็ต Aesthetic Points จาก Firestore
+          // 🛠️ ดึงข้อมูลผู้ใช้
+          const userRef = doc(db, "users", user.uid);
+          const userSnapshot = await getDoc(userRef);
+          if (userSnapshot.exists()) {
+            const userData = userSnapshot.data();
+            setCoins(userData.coins || 0);
+            setAestheticPoints(userData.aestheticPoints || 0);
+          }
+        } catch (error) {
+          console.error("Error fetching data:", error);
+          alert("เกิดข้อผิดพลาดในการโหลดข้อมูล");
         }
-      };
+      }
+    };
 
-      const fetchCoins = async () => {
-        const userRef = doc(db, "users", user.uid);
-        const userSnapshot = await getDoc(userRef);
-        if (userSnapshot.exists()) {
-          const userData = userSnapshot.data();
-          setCoins(userData.coins || 0);  // 🛠️ เซ็ต Coins จาก Firestore
-        }
-      };
-
-      const fetchUserStats = async () => {
-        const userRef = doc(db, "users", user.uid);
-        const userSnapshot = await getDoc(userRef);
-        if (userSnapshot.exists()) {
-          const userData = userSnapshot.data();
-          setAestheticPoints(userData.aestheticPoints || 0);
-          setCoins(userData.coins || 0);
-        }
-      };
-
-      fetchUserStats();
-      fetchAestheticPoints();
-      fetchCoins();
-      fetchPlants();
-    }
-  }, [user]);
+    fetchData();
+  }, [user, params?.id]); // ✅ เช็ก params.id และ user
 
   if (loading) return <p>Loading...</p>;
 
   return (
     <div className="min-h-screen bg-green-100 p-6">
-      <h1 className="text-3xl mb-6 text-center">สวนของฉัน 🌿</h1>
-      {plants.length === 0 ? (
-        <p className="text-center text-gray-500">ยังไม่มีต้นไม้ในสวนของคุณ!</p>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {plants.map((plant) => (
-            <div key={plant.id} className="bg-white shadow-md rounded-lg p-4">
-              <h3 className="text-xl mb-2">{plant.name}</h3>
-              <p>สถานะ: {plant.status}</p>
-              <p>ปลูกเมื่อ: {new Date(plant.plantedAt.seconds * 1000).toLocaleDateString()}</p>
-              <button
-                onClick={() => waterPlant(plant)}
-                className="px-4 py-2 bg-blue-500 text-white rounded mt-2"
-              >
-                รดน้ำ 💧
-              </button>
-              <button
-                onClick={() => {
-                  fertilizePlant(plant)
-                  useItem("fertilizer");  // 🛠️ ใช้ปุ๋ย 1 อัน 🌿
-                }}
-                className="px-4 py-2 bg-green-500 text-white rounded mt-2"
-              >
-                ให้ปุ๋ย 🌿
-              </button>
-              <button
-                onClick={() => prunePlant(plant)}
-                className="px-4 py-2 bg-purple-500 text-white rounded mt-2"
-              >
-                ตัดแต่งกิ่ง ✂️
-              </button>
-              <button
-                onClick={() => {
-                  trainBonsai(plant, "easy");
-                  useItem("wire");  // 🛠️ ใช้ลวด 1 อัน 🌿
-                }}
-                className="px-4 py-2 bg-blue-500 text-white rounded mt-2"
-              >
-                ฝึกทรงบอนไซ (ง่าย) 🌀
-              </button>
-              <button
-                onClick={() => {
-                  trainBonsai(plant, "medium")
-                  useItem("wire");  // 🛠️ ใช้ลวด 1 อัน 🌿
-                }}
-                className="px-4 py-2 bg-orange-500 text-white rounded mt-2"
-              >
-                ฝึกทรงบอนไซ (ปานกลาง) 🌀
-              </button>
-              <button
-                onClick={() => {
-                  trainBonsai(plant, "hard")
-                  useItem("wire");  // 🛠️ ใช้ลวด 1 อัน 🌿
-                }}
-                className="px-4 py-2 bg-red-500 text-white rounded mt-2"
-              >
-                ฝึกทรงบอนไซ (ยาก) 🌀
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="bg-white shadow-md rounded-lg p-6 max-w-2xl mx-auto">
+        <h1 className="text-3xl mb-4 text-center text-[#4caf50]">
+          {plants?.name || "ไม่มีชื่อ"}
+        </h1>
+        <p className="mb-2">สถานะ: {plants?.status || "ไม่ระบุ"}</p>
+        <p className="mb-2">ระดับ: {plants?.stage || "ไม่ระบุ"}</p>
+        <p className="mb-2">XP: {plants?.xp || 0}/100</p>
+        <p className="mb-2">Aesthetic Points: {aestheticPoints} ⭐</p>
+        <p className="mb-4">
+          ปลูกเมื่อ:{" "}
+          {plants?.plantedAt
+            ? new Date(plants.plantedAt.seconds * 1000).toLocaleDateString()
+            : "ไม่ระบุ"}
+        </p>
+        <button
+          onClick={() => waterPlant(plants)}
+          className="px-4 py-2 bg-blue-500 text-white rounded mt-2"
+        >
+          รดน้ำ 💧
+        </button>
+        <button
+          onClick={() => {
+            fertilizePlant(plants);
+            useItem("fertilizer"); // 🛠️ ใช้ปุ๋ย 1 อัน 🌿
+          }}
+          className="px-4 py-2 bg-green-500 text-white rounded mt-2"
+        >
+          ให้ปุ๋ย 🌿
+        </button>
+        <button
+          onClick={() => prunePlant(plants)}
+          className="px-4 py-2 bg-purple-500 text-white rounded mt-2"
+        >
+          ตัดแต่งกิ่ง ✂️
+        </button>
+        <button
+          onClick={() => {
+            trainBonsai(plants, "easy");
+            useItem("wire"); // 🛠️ ใช้ลวด 1 อัน 🌿
+          }}
+          className="px-4 py-2 bg-blue-500 text-white rounded mt-2"
+        >
+          ฝึกทรงบอนไซ (ง่าย) 🌀
+        </button>
+        <button
+          onClick={() => {
+            trainBonsai(plants, "medium");
+            useItem("wire"); // 🛠️ ใช้ลวด 1 อัน 🌿
+          }}
+          className="px-4 py-2 bg-orange-500 text-white rounded mt-2"
+        >
+          ฝึกทรงบอนไซ (ปานกลาง) 🌀
+        </button>
+        <button
+          onClick={() => {
+            trainBonsai(plants, "hard");
+            useItem("wire"); // 🛠️ ใช้ลวด 1 อัน 🌿
+          }}
+          className="px-4 py-2 bg-red-500 text-white rounded mt-2"
+        >
+          ฝึกทรงบอนไซ (ยาก) 🌀
+        </button>
+      </div>
     </div>
   );
 };
