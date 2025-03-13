@@ -10,7 +10,7 @@ import {
   setDoc,
 } from "firebase/firestore";
 import useAuth from "@/hooks/useAuth";
-import Link from "next/link";
+import PlotCard from "@/components/plots/PlotCard";
 
 const MapPage = () => {
   const { user, loading, userData } = useAuth();
@@ -38,6 +38,7 @@ const MapPage = () => {
       );
     }
   }, [userData]);
+  
   // 🛠️ ฟังก์ชันดึงข้อมูลแปลง
   useEffect(() => {
     if (!user) return;
@@ -236,20 +237,10 @@ const MapPage = () => {
         </h1>
         <div className="grid grid-cols-5 gap-4">
           {plots.map((plot) => (
-            <Link
-              href={`/game/garden/${plot.id}`}
-              key={plot.id}
-              className={`w-full h-full border rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer ${
-                plot.planted ? "bg-green-200" : "bg-gray-100"
-              }`}
-            >
-              <span className="p-4">{plot.planted ? plot.plant.name : "ว่าง"}</span>
-              <span className="p-4">{plot.plant.xp}</span>
-              <span className="p-4 text-xs text-gray-600">
-                {plot.planted && plot.plant.stage}
-              </span>
-            </Link>
+
+            <PlotCard key={plot.id} plot={plot} />
           ))}
+
         </div>
       </main>
 
