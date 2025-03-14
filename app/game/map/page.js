@@ -5,15 +5,12 @@ import PlotCard from "@/components/plots/PlotCard";
 import usePlots from "@/hooks/usePlots";
 
 const MapPage = () => {
-  const { user, loading, userData, plotsLoading } = useAuth();
+  const { loading, userData, plotsLoading } = useAuth();
   const { plots, buyPlot, plantInPlots } = usePlots([]);
-  const [selectedSeed, setSelectedSeed] = useState(null);
-  const [inventory, setInventory] = useState([]);
   const [seeds, setSeeds] = useState([]); // 🌱 เก็บเฉพาะเมล็ดพันธุ์
   const [items, setItems] = useState([]); // 🎒 เก็บเฉพาะสิ่งของ
   const [fertilizers, setFertilizers] = useState([]);
   const [coins, setCoins] = useState(0);
-  const [xp, setXp] = useState(0);
 
   // 🛠️ ดึงข้อมูลแปลงและ Inventory
   useEffect(() => {
