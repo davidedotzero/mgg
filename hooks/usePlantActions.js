@@ -27,27 +27,56 @@ const usePlantActions = (user) => {
     if (!plant || !plant.id) return alert("ไม่พบต้นไม้!");
 
     const now = new Date();
-    const lastWateredAt = plant.lastWateredAt?.toDate();
+    const plantRef = doc(db, "plots", plant.id);
+    let newWaterLevel = (plant.waterLevel || 50) + 15; // 💧 เพิ่มน้ำ 15%
 
-    if (lastWateredAt && (now - lastWateredAt) / 1000 / 60 < 60) {
-      alert("คุณรดน้ำต้นนี้ไปแล้วเมื่อไม่นานมานี้! 💧⏳");
+    // ⚠️ เช็กว่ารดน้ำมากเกินไปหรือไม่
+    if (newWaterLevel > 100) {
+      const confirmOverwater = confirm(
+        `🌊 ต้นไม้ ${plant.name} อาจได้รับน้ำมากเกินไป! อาจเกิดรากเน่าได้ 🌿\n\nคุณต้องการรดน้ำต่อหรือไม่?`
+      );
+      if (!confirmOverwater) return;
+    }
+
+    // 🛠️ ถ้าน้ำเกิน 120 → ต้นไม้รากเน่าและตาย ❌
+    if (newWaterLevel > 120) {
+      await updateDoc(plantRef, {
+        "plant.status": "root rot",
+        "plant.waterLevel": 0,
+      });
+
+      setPlants((prevPlants) =>
+        prevPlants.map((p) =>
+          p.id === plant.id ? { ...p, status: "root rot", waterLevel: 0 } : p
+        )
+      );
+      alert(`🌊 ต้นไม้ ${plant.name} ได้รับน้ำมากเกินไป และเกิดรากเน่า! ❌`);
       return;
     }
+
     try {
-      const plantRef = doc(db, "plots", plant.id);
       await updateDoc(plantRef, {
         "plant.lastWateredAt": now,
+        "plant.waterLevel": newWaterLevel,
         "plant.status": "hydrated",
       });
 
       setPlants((prevPlants) =>
         prevPlants.map((p) =>
           p.id === plant.id
-            ? { ...p, lastWateredAt: now, status: "hydrated" }
+            ? {
+                ...p,
+                lastWateredAt: now,
+                waterLevel: newWaterLevel,
+                status: "hydrated",
+              }
             : p
         )
       );
-      alert(`รดน้ำต้นไม้ ${plant.name} สำเร็จ! 💧`);
+
+      alert(
+        `💧 รดน้ำต้นไม้ ${plant.name} สำเร็จ! (ระดับน้ำ: ${newWaterLevel}%)`
+      );
     } catch (error) {
       console.error("Error watering plant:", error);
       alert("เกิดข้อผิดพลาดในการรดน้ำต้นไม้ ❌");
