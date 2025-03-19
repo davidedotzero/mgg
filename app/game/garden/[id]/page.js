@@ -23,49 +23,8 @@ const GardenPage = () => {
   const { id } = useParams();
 
   // ✅ ใช้ฟังก์ชันจาก usePlantActions
-  const { waterPlant, fertilizePlant, prunePlant, trainBonsai } = usePlantActions(user, setPlant, setCoins, setAestheticPoints, setInventory);
-  const { health, waterLevel } = useHealth(plant);
-  // const useItem = async (itemId) => {
-  //   if (!user) {
-  //     alert("กรุณาเข้าสู่ระบบ! ❌");
-  //     return;
-  //   }
-  
-  //   try {
-  //     const userRef = doc(db, "users", user.uid);
-  //     const userSnapshot = await getDoc(userRef);
-  
-  //     if (!userSnapshot.exists()) {
-  //       alert("ไม่พบข้อมูลผู้ใช้! ❌");
-  //       return;
-  //     }
-  
-  //     const userData = userSnapshot.data();
-  //     if (!userData.inventory || userData.inventory.length === 0) {
-  //       alert("ไม่มีไอเทมใน inventory! ❌");
-  //       return;
-  //     }
-  
-  //     // ค้นหาไอเทมที่ต้องการใช้
-  //     const updatedInventory = userData.inventory
-  //       .map((invItem) => {
-  //         if (invItem.id === itemId) {
-  //           const newCount = invItem.count - 1;
-  //           return newCount > 0 ? { ...invItem, count: newCount } : null;
-  //         }
-  //         return invItem;
-  //       })
-  //       .filter(Boolean); // ลบไอเทมที่ count = 0 ออก
-  
-  //     // อัปเดต Inventory ใน Firestore
-  //     await updateDoc(userRef, { inventory: updatedInventory });
-  
-  //     alert("ใช้ไอเทมสำเร็จ! 🎒");
-  //   } catch (error) {
-  //     console.error("Error using item:", error);
-  //     alert("เกิดข้อผิดพลาดในการใช้ไอเทม ❌");
-  //   }
-  // };
+  const { waterPlant, fertilizePlant, prunePlant, trainBonsai, health, waterLevel } =
+    usePlantActions(plant, setPlant);
   
   useEffect(() => {
     const fetchData = async () => {
