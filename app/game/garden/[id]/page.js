@@ -10,6 +10,7 @@ import {
 } from "firebase/firestore";
 import useAuth from "@/hooks/useAuth";
 import usePlantActions from "@/hooks/usePlantActions";
+import useHealth from "@/hooks/useHealth";
 
 const GardenPage = () => {
   const { user, loading } = useAuth();
@@ -23,7 +24,7 @@ const GardenPage = () => {
 
   // ✅ ใช้ฟังก์ชันจาก usePlantActions
   const { waterPlant, fertilizePlant, prunePlant, trainBonsai } = usePlantActions(user, setPlant, setCoins, setAestheticPoints, setInventory);
-
+  const { health, waterLevel } = useHealth(plant);
   // const useItem = async (itemId) => {
   //   if (!user) {
   //     alert("กรุณาเข้าสู่ระบบ! ❌");
@@ -157,6 +158,8 @@ const GardenPage = () => {
         <h1 className="text-3xl mb-4 text-[#4caf50]">
           {plant?.name || "ไม่มีต้นไม้"}
         </h1>
+        <p className="mb-2">สุขภาพ: {health} ❤️</p>
+        <p className="mb-2">ระดับน้ำ: {waterLevel} 💧</p>
         <p className="mb-2">สถานะ: {plant?.status || "ไม่มีข้อมูล"}</p>
         <p className="mb-2">ระดับ: {plant?.stage || "ยังไม่เติบโต"}</p>
         <p className="mb-4">
