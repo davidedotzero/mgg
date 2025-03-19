@@ -2,9 +2,11 @@ import { useState } from "react";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebaseConfig";
 import useHealth from "./useHealth";
+import useGrowth from "./useGrowth";
 
 const usePlantActions = (plant, setPlant) => {
   const { health, increaseHealth, decreaseHealth } = useHealth(plant);
+  const { xp, growthStage, increaseXP } = useGrowth(plant, setPlant);
   const [waterLevel, setWaterLevel] = useState(plant?.waterLevel || 50);
 
   // ✅ ฟังก์ชันรดน้ำต้นไม้
@@ -23,6 +25,7 @@ const usePlantActions = (plant, setPlant) => {
         alert("รดน้ำมากไป! ต้นไม้เริ่มรากเน่า! ⚠️");
       } else {
         await increaseHealth(5); // เพิ่มสุขภาพ 5 ถ้ารดน้ำพอดี
+        await increaseXP(5); // EXP Point 
       }
 
       await updateDoc(plantRef, {
@@ -46,6 +49,7 @@ const usePlantActions = (plant, setPlant) => {
 
     try {
       await increaseHealth(10);
+      await increaseXP(10); // EXP Point 
       await updateDoc(plantRef, {
         "plant.lastFertilizedAt": now,
       });
@@ -65,6 +69,7 @@ const usePlantActions = (plant, setPlant) => {
 
     try {
       await increaseHealth(5);
+      await increaseXP(8); // EXP Point 
       await updateDoc(plantRef, {
         "plant.lastPrunedAt": now,
       });
@@ -87,6 +92,7 @@ const usePlantActions = (plant, setPlant) => {
     try {
       if (isSuccess) {
         await increaseHealth(10);
+        await increaseXP(15); // EXP Point 
         await updateDoc(plantRef, { "plant.status": "trained" });
         alert(`ฝึกทรงบอนไซสำเร็จ! 🌀`);
       } else {
@@ -99,7 +105,7 @@ const usePlantActions = (plant, setPlant) => {
     }
   };
 
-  return { plant, waterPlant, fertilizePlant, prunePlant, trainBonsai, health, waterLevel };
+  return { plant, waterPlant, fertilizePlant, prunePlant, trainBonsai, health, xp, growthStage, waterLevel };
 };
 
 export default usePlantActions;

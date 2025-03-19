@@ -2,30 +2,32 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { db } from "@/lib/firebaseConfig";
-import {
-  doc,
-  updateDoc,
-  getDoc,
-  setDoc,
-} from "firebase/firestore";
+import { doc, updateDoc, getDoc, setDoc } from "firebase/firestore";
 import useAuth from "@/hooks/useAuth";
 import usePlantActions from "@/hooks/usePlantActions";
-import useHealth from "@/hooks/useHealth";
+import PlantStats from "@/components/PlantStats";
 
 const GardenPage = () => {
   const { user, loading } = useAuth();
   const [plant, setPlant] = useState([]);
   const [coins, setCoins] = useState(0);
-  const [aestheticPoints, setAestheticPoints] = useState(0);
   const [inventory, setInventory] = useState([]);
   const [selectedSeed, setSelectedSeed] = useState(null);
   const router = useRouter();
   const { id } = useParams();
 
   // ✅ ใช้ฟังก์ชันจาก usePlantActions
-  const { waterPlant, fertilizePlant, prunePlant, trainBonsai, health, waterLevel } =
-    usePlantActions(plant, setPlant);
-  
+  const {
+    waterPlant,
+    fertilizePlant,
+    prunePlant,
+    trainBonsai,
+    health,
+    xp,
+    growthStage,
+    waterLevel,
+  } = usePlantActions(plant, setPlant);
+
   useEffect(() => {
     const fetchData = async () => {
       if (user && id) {
@@ -46,7 +48,6 @@ const GardenPage = () => {
           if (userSnapshot.exists()) {
             const userData = userSnapshot.data();
             setCoins(userData.coins || 0);
-            setAestheticPoints(userData.aestheticPoints || 0);
             setInventory(userData.inventory || []);
           }
         } catch (error) {
@@ -61,7 +62,8 @@ const GardenPage = () => {
 
   if (loading) return <p>Loading...</p>;
 
-  const isPlotEmpty = !plant || !plant.name || !plant.status || plant.planted === false;
+  const isPlotEmpty =
+    !plant || !plant.name || !plant.status || plant.planted === false;
 
   // ✅ ฟังก์ชันปลูกต้นไม้
   const plantSeed = async () => {
@@ -74,26 +76,32 @@ const GardenPage = () => {
       const plotRef = doc(db, "plots", id);
       const userRef = doc(db, "users", user.uid);
 
-      await setDoc(plotRef, {
-        plant: {
-          id: id,
-          name: selectedSeed.name,
-          owner: user.uid,
-          status: "growing",
-          plantedAt: new Date(),
-          stage: "seedling",
-          xp: 0,
-          growthProgress: 0,
-          lastWateredAt: null,
+      await setDoc(
+        plotRef,
+        {
+          plant: {
+            id: id,
+            name: selectedSeed.name,
+            owner: user.uid,
+            status: "growing",
+            plantedAt: new Date(),
+            stage: "seedling",
+            xp: 0,
+            growthProgress: 0,
+            lastWateredAt: null,
+          },
+          planted: true,
         },
-        planted: true,
-      }, { merge: true });
+        { merge: true }
+      );
 
       // ✅ ลบเมล็ดพันธุ์ออกจาก inventory
       const userSnapshot = await getDoc(userRef);
       if (userSnapshot.exists()) {
         const userData = userSnapshot.data();
-        const updatedInventory = userData.inventory.filter(item => item.id !== selectedSeed.id);
+        const updatedInventory = userData.inventory.filter(
+          (item) => item.id !== selectedSeed.id
+        );
         await updateDoc(userRef, { inventory: updatedInventory });
       }
 
@@ -117,10 +125,17 @@ const GardenPage = () => {
         <h1 className="text-3xl mb-4 text-[#4caf50]">
           {plant?.name || "ไม่มีต้นไม้"}
         </h1>
-        <p className="mb-2">สุขภาพ: {health} ❤️</p>
+        <PlantStats
+          health={health}
+          xp={xp}
+          growthStage={growthStage}
+          waterLevel={waterLevel}
+        />
+        {/* <p className="mb-2">สุขภาพ: {health} ❤️</p>
         <p className="mb-2">ระดับน้ำ: {waterLevel} 💧</p>
         <p className="mb-2">สถานะ: {plant?.status || "ไม่มีข้อมูล"}</p>
-        <p className="mb-2">ระดับ: {plant?.stage || "ยังไม่เติบโต"}</p>
+        <p className="mb-2">XP: {xp} 🌱</p>
+        <p className="mb-2">ระดับการเติบโต: {growthStage} 🎋</p> */}
         <p className="mb-4">
           ปลูกเมื่อ:{" "}
           {plant?.plantedAt
@@ -133,19 +148,20 @@ const GardenPage = () => {
             <p className="text-red-500 mb-4">⚠️ ยังไม่มีต้นไม้ปลูกในแปลงนี้!</p>
             <h2 className="text-xl mb-2">เลือกเมล็ดพันธุ์ 🌱</h2>
             <div className="flex flex-wrap justify-center gap-2 mb-4">
-              {inventory.filter(item => item.type === "seed").length === 0 ? (
+              {inventory.filter((item) => item.type === "seed").length === 0 ? (
                 <p className="text-gray-500">ไม่มีเมล็ดพันธุ์ในคลัง</p>
               ) : (
                 inventory
-                  .filter(item => item.type === "seed")
+                  .filter((item) => item.type === "seed")
                   .map((seed, index) => (
                     <button
                       key={index}
                       onClick={() => setSelectedSeed(seed)}
-                      className={`px-4 py-2 rounded-lg ${selectedSeed?.id === seed.id
-                        ? "bg-blue-500 text-white"
-                        : "bg-gray-200"
-                        }`}
+                      className={`px-4 py-2 rounded-lg ${
+                        selectedSeed?.id === seed.id
+                          ? "bg-blue-500 text-white"
+                          : "bg-gray-200"
+                      }`}
                     >
                       {seed.name}
                     </button>
@@ -155,8 +171,9 @@ const GardenPage = () => {
 
             <button
               onClick={plantSeed}
-              className={`px-4 py-2 rounded bg-green-500 text-white ${!selectedSeed ? "opacity-50 cursor-not-allowed" : ""
-                }`}
+              className={`px-4 py-2 rounded bg-green-500 text-white ${
+                !selectedSeed ? "opacity-50 cursor-not-allowed" : ""
+              }`}
               disabled={!selectedSeed}
             >
               ปลูกต้นไม้ 🌱
