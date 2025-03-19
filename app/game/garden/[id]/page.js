@@ -26,6 +26,7 @@ const GardenPage = () => {
     xp,
     growthStage,
     waterLevel,
+    applyDecay,
   } = usePlantActions(plant, setPlant);
 
   useEffect(() => {
@@ -58,6 +59,7 @@ const GardenPage = () => {
     };
 
     fetchData();
+    applyDecay();
   }, [user, id, plant]);
 
   if (loading) return <p>Loading...</p>;
@@ -121,8 +123,8 @@ const GardenPage = () => {
 
   return (
     <div className="min-h-screen bg-green-100 p-6">
-      <div className="bg-white shadow-md rounded-lg p-6 max-w-2xl mx-auto text-center">
-        <h1 className="text-3xl mb-4 text-[#4caf50]">
+      <div className="bg-white border-2 p-6 max-w-2xl mx-auto text-center">
+        <h1 className="text-3xl font-bold mb-4 text-[#4caf50]">
           {plant?.name || "ไม่มีต้นไม้"}
         </h1>
         <PlantStats
@@ -131,11 +133,6 @@ const GardenPage = () => {
           growthStage={growthStage}
           waterLevel={waterLevel}
         />
-        {/* <p className="mb-2">สุขภาพ: {health} ❤️</p>
-        <p className="mb-2">ระดับน้ำ: {waterLevel} 💧</p>
-        <p className="mb-2">สถานะ: {plant?.status || "ไม่มีข้อมูล"}</p>
-        <p className="mb-2">XP: {xp} 🌱</p>
-        <p className="mb-2">ระดับการเติบโต: {growthStage} 🎋</p> */}
         <p className="mb-4">
           ปลูกเมื่อ:{" "}
           {plant?.plantedAt
@@ -171,7 +168,7 @@ const GardenPage = () => {
 
             <button
               onClick={plantSeed}
-              className={`px-4 py-2 rounded bg-green-500 text-white ${
+              className={`px-4 py-2 rounded border-2 ${
                 !selectedSeed ? "opacity-50 cursor-not-allowed" : ""
               }`}
               disabled={!selectedSeed}
@@ -207,7 +204,7 @@ const GardenPage = () => {
 
             <button
               onClick={() => trainBonsai(plant, "easy")}
-              className="px-4 py-2 bg-red-500 text-white rounded mt-2"
+              className="px-4 py-2 border-1  text-white mt-2"
               disabled={isPlotEmpty}
             >
               ฝึกทรงบอนไซ 🌀

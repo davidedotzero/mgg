@@ -25,7 +25,7 @@ const usePlantActions = (plant, setPlant) => {
         alert("รดน้ำมากไป! ต้นไม้เริ่มรากเน่า! ⚠️");
       } else {
         await increaseHealth(5); // เพิ่มสุขภาพ 5 ถ้ารดน้ำพอดี
-        await increaseXP(5); // EXP Point 
+        await increaseXP(5); // EXP Point
       }
 
       await updateDoc(plantRef, {
@@ -49,7 +49,7 @@ const usePlantActions = (plant, setPlant) => {
 
     try {
       await increaseHealth(10);
-      await increaseXP(10); // EXP Point 
+      await increaseXP(10); // EXP Point
       await updateDoc(plantRef, {
         "plant.lastFertilizedAt": now,
       });
@@ -69,7 +69,7 @@ const usePlantActions = (plant, setPlant) => {
 
     try {
       await increaseHealth(5);
-      await increaseXP(8); // EXP Point 
+      await increaseXP(8); // EXP Point
       await updateDoc(plantRef, {
         "plant.lastPrunedAt": now,
       });
@@ -92,7 +92,7 @@ const usePlantActions = (plant, setPlant) => {
     try {
       if (isSuccess) {
         await increaseHealth(10);
-        await increaseXP(15); // EXP Point 
+        await increaseXP(15); // EXP Point
         await updateDoc(plantRef, { "plant.status": "trained" });
         alert(`ฝึกทรงบอนไซสำเร็จ! 🌀`);
       } else {
@@ -105,7 +105,54 @@ const usePlantActions = (plant, setPlant) => {
     }
   };
 
-  return { plant, waterPlant, fertilizePlant, prunePlant, trainBonsai, health, xp, growthStage, waterLevel };
+  // ✅ ฟังก์ชัน Decay System
+  const applyDecay = async () => {
+    if (!plant || !plant.id) return;
+
+    const now = new Date();
+    const lastUpdatedAt =
+      plant.lastWateredAt?.toDate?.() || plant.plantedAt?.toDate?.();
+
+    if (!lastUpdatedAt) return;
+
+    const hoursSinceLastUpdate = (now - lastUpdatedAt) / 1000 / 60 / 60;
+    const daysSinceLastUpdate = Math.floor(hoursSinceLastUpdate / 24);
+
+    if (daysSinceLastUpdate >= 1) {
+      let newHealth = Math.max(plant.health - daysSinceLastUpdate * 5, 0);
+      let newXp = Math.max(plant.xp - daysSinceLastUpdate * 2, 0);
+
+      const plantRef = doc(db, "plots", plant.id);
+      await updateDoc(plantRef, {
+        "plant.health": newHealth,
+        "plant.xp": newXp,
+      });
+
+      setPlant((prevPlant) => ({
+        ...prevPlant,
+        health: newHealth,
+        xp: newXp,
+      }));
+
+      if (newHealth <= 10) {
+        alert(`⚠️ ต้นไม้ ${plant.name} กำลังจะตาย! รีบดูแลมันเถอะ! 🌱`);
+      }
+    }
+  };
+
+  return {
+    plant,
+    waterPlant,
+    fertilizePlant,
+    prunePlant,
+    trainBonsai,
+    health,
+    xp,
+    growthStage,
+    waterLevel,
+    plant,
+    applyDecay,
+  };
 };
 
 export default usePlantActions;

@@ -1,6 +1,6 @@
 const PlantStats = ({ health, xp, growthStage, waterLevel }) => {
     return (
-      <div className="w-full bg-white border-1 p-4">
+      <div className="w-full bg-white border-2 p-4 m-4">
         <h2 className="text-xl font-semibold text-center mb-2">🌱 สถานะต้นไม้</h2>
   
         {/* ✅ แถบสุขภาพ */}
